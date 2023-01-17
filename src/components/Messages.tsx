@@ -264,11 +264,16 @@ const Messages = () => {
   const localStream = useRef<MediaStream>(new MediaStream());
   const remoteStream = useRef<MediaStream>(new MediaStream());
 
-  const startCamera = async () => {
+  useEffect(() => {
     const newRemote = new MediaStream();
     remoteStream.current = newRemote;
     remoteVideoRef.current!.srcObject = newRemote;
+  });
 
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+
+  const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -280,9 +285,6 @@ const Messages = () => {
       console.log("NO CAMERA");
     }
   };
-
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   return (
     <div>
