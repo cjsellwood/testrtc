@@ -112,6 +112,7 @@ const Messages = () => {
 
     // VIDEO
     localStream.current.getTracks().forEach((track) => {
+      console.log("ADDING LOCAL TRACK: ", track);
       peerConnection.addTrack(track, localStream.current);
     });
 
@@ -138,7 +139,7 @@ const Messages = () => {
         console.log("Got final candidate");
         return;
       }
-      console.log("Got candidate: ", e.candidate);
+      // console.log("Got candidate: ", e.candidate);
       await addDoc(offerCandidates, e.candidate.toJSON());
     });
 
@@ -171,17 +172,9 @@ const Messages = () => {
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
           let data = change.doc.data();
-          console.log(`Got new remote ICE candidate: ${JSON.stringify(data)}`);
+          // console.log(`Got new remote ICE candidate: ${JSON.stringify(data)}`);
           peerConnection.addIceCandidate(new RTCIceCandidate(data));
         }
-      });
-    });
-
-    // REMOTE VIDEO
-    peerConnection.addEventListener("track", (e) => {
-      e.streams[0].getTracks().forEach((track) => {
-        console.log("Add a track to the remoteStream", track);
-        remoteStream.current.addTrack(track);
       });
     });
   };
@@ -203,7 +196,7 @@ const Messages = () => {
         console.log("Got final candidate");
         return;
       }
-      console.log("Got candidate: ", e.candidate);
+      // console.log("Got candidate: ", e.candidate);
       await addDoc(answerCandidates, e.candidate.toJSON());
     });
 
@@ -243,17 +236,9 @@ const Messages = () => {
       snapshot.docChanges().forEach(async (change) => {
         if (change.type === "added") {
           let data = change.doc.data();
-          console.log(`Got new remote ICE candidate: ${JSON.stringify(data)}`);
+          // console.log(`Got new remote ICE candidate: ${JSON.stringify(data)}`);
           await peerConnection.addIceCandidate(new RTCIceCandidate(data));
         }
-      });
-    });
-
-    // REMOTE VIDEO
-    peerConnection.addEventListener("track", (e) => {
-      e.streams[0].getTracks().forEach((track) => {
-        console.log("Add a track to the remoteStream", track);
-        remoteStream.current.addTrack(track);
       });
     });
   };
@@ -263,12 +248,6 @@ const Messages = () => {
 
   const localStream = useRef<MediaStream>(new MediaStream());
   const remoteStream = useRef<MediaStream>(new MediaStream());
-
-  useEffect(() => {
-    const newRemote = new MediaStream();
-    remoteStream.current = newRemote;
-    remoteVideoRef.current!.srcObject = newRemote;
-  });
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -286,6 +265,17 @@ const Messages = () => {
     }
   };
 
+  useEffect(() => {
+    startCamera();
+    peerConnection.addEventListener("track", (e) => {
+      e.streams[0].getTracks().forEach((track) => {
+        // console.log("Add a track to the remoteStream", track);
+        remoteStream.current.addTrack(track);
+        remoteVideoRef.current!.srcObject = remoteStream.current;
+      });
+    });
+  }, []);
+
   return (
     <div>
       <button onClick={createRoom}>Create Room</button>
@@ -296,17 +286,17 @@ const Messages = () => {
       <button onClick={sendMessage}>Submit</button>
       <ul>
         <h1>Sent Messages</h1>
-        {sentMessages.map((m) => {
-          return <p>{m}</p>;
+        {sentMessages.map((m, i) => {
+          return <p key={`sent-${i}`}>{m}</p>;
         })}
       </ul>
       <ul>
         <h1>Received Messages</h1>
-        {receivedMessages.map((m) => {
-          return <p>{m}</p>;
+        {receivedMessages.map((m, i) => {
+          return <p key={`received-${i}`}>{m}</p>;
         })}
       </ul>
-      <video autoPlay playsInline ref={localVideoRef}></video>
+      <video muted autoPlay playsInline ref={localVideoRef}></video>
       <video autoPlay playsInline ref={remoteVideoRef}></video>
     </div>
   );
