@@ -8,7 +8,7 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { db } from "../index";
 
 const configuration = {
@@ -110,6 +110,11 @@ const Messages = () => {
     const answerCandidates = collection(callDoc, "answerCandidates");
     console.log(callDoc.id);
 
+    // VIDEO
+    localStream.current.getTracks().forEach((track) => {
+      peerConnection.addTrack(track, localStream.current);
+    });
+
     // Create data channel
     const sendChannel = peerConnection.createDataChannel("sendDataChannel");
     setDataChannel(sendChannel);
@@ -171,6 +176,14 @@ const Messages = () => {
         }
       });
     });
+
+    // REMOTE VIDEO
+    peerConnection.addEventListener("track", (e) => {
+      e.streams[0].getTracks().forEach((track) => {
+        console.log("Add a track to the remoteStream", track);
+        remoteStream.current.addTrack(track);
+      });
+    });
   };
 
   const joinRoom = async () => {
@@ -178,6 +191,11 @@ const Messages = () => {
     const callDoc = doc(collection(db, `calls`), rooms[0]);
     const offerCandidates = collection(callDoc, "offerCandidates");
     const answerCandidates = collection(callDoc, "answerCandidates");
+
+    // VIDEO
+    localStream.current.getTracks().forEach((track) => {
+      peerConnection.addTrack(track, localStream.current);
+    });
 
     // Collect ICE candidates
     peerConnection.addEventListener("icecandidate", async (e) => {
@@ -230,15 +248,47 @@ const Messages = () => {
         }
       });
     });
+
+    // REMOTE VIDEO
+    peerConnection.addEventListener("track", (e) => {
+      e.streams[0].getTracks().forEach((track) => {
+        console.log("Add a track to the remoteStream", track);
+        remoteStream.current.addTrack(track);
+      });
+    });
   };
 
   const [sentMessages, setSentMessages] = useState<string[]>([]);
   const [receivedMessages, setReceivedMessages] = useState<string[]>([]);
 
+  const localStream = useRef<MediaStream>(new MediaStream());
+  const remoteStream = useRef<MediaStream>(new MediaStream());
+
+  const startCamera = async () => {
+    const newRemote = new MediaStream();
+    remoteStream.current = newRemote;
+    remoteVideoRef.current!.srcObject = newRemote;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      localVideoRef.current!.srcObject = stream;
+      localStream.current = stream;
+    } catch (err) {
+      console.log("NO CAMERA");
+    }
+  };
+
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+
   return (
     <div>
       <button onClick={createRoom}>Create Room</button>
       <button onClick={joinRoom}>Join Room</button>
+      <button onClick={startCamera}>START CAMERA</button>
       <h1>Messages</h1>
       <input type="text" onChange={(e) => setMessage(e.target.value)} />
       <button onClick={sendMessage}>Submit</button>
@@ -254,6 +304,8 @@ const Messages = () => {
           return <p>{m}</p>;
         })}
       </ul>
+      <video autoPlay playsInline ref={localVideoRef}></video>
+      <video autoPlay playsInline ref={remoteVideoRef}></video>
     </div>
   );
 };
