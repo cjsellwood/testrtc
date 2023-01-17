@@ -1,6 +1,8 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -79,15 +81,14 @@ const Messages = () => {
   const [dataChannel, setDataChannel] = useState<null | RTCDataChannel>(null);
   const [rooms, setRooms] = useState<string[]>([]);
 
-  useEffect(() => {
-    getDocs(collection(db, "calls")).then((c) => {
-      const ids: string[] = [];
-      c.forEach((line) => {
-        ids.push(line.id);
-      });
-      setRooms(ids);
+  const getRooms = async () => {
+    const roomDocs = await getDocs(collection(db, "calls"));
+    const ids: string[] = [];
+    roomDocs.forEach((line) => {
+      ids.push(line.id);
     });
-  }, []);
+    return ids;
+  };
 
   useEffect(() => {
     registerPeerConnectionListeners();
@@ -112,7 +113,7 @@ const Messages = () => {
 
     // VIDEO
     localStream.current.getTracks().forEach((track) => {
-      console.log("ADDING LOCAL TRACK: ", track);
+      console.log("ADDING LOCAL TRACK");
       peerConnection.addTrack(track, localStream.current);
     });
 
@@ -180,8 +181,11 @@ const Messages = () => {
   };
 
   const joinRoom = async () => {
-    console.log(rooms);
-    const callDoc = doc(collection(db, `calls`), rooms[0]);
+    const currentRooms = await getRooms();
+    setRooms(currentRooms);
+    console.log(currentRooms);
+
+    const callDoc = doc(collection(db, `calls`), currentRooms[0]);
     const offerCandidates = collection(callDoc, "offerCandidates");
     const answerCandidates = collection(callDoc, "answerCandidates");
 
@@ -207,6 +211,13 @@ const Messages = () => {
         console.log("Message: ", e.data);
         setReceivedMessages((m) => [...m, e.data]);
       });
+    });
+
+    peerConnection.addEventListener("connectionstatechange", async (e) => {
+      console.log(peerConnection.connectionState);
+      if (peerConnection.connectionState === "failed") {
+        await deleteDoc(callDoc);
+      }
     });
 
     const callData = (await getDoc(callDoc)).data();
